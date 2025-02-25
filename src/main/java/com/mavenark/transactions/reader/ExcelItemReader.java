@@ -11,6 +11,7 @@ import org.springframework.core.io.Resource;
 
 import java.io.InputStream;
 import java.util.Iterator;
+
 @Slf4j
 public class ExcelItemReader<T> implements ItemReader<T> {
 
@@ -27,12 +28,12 @@ public class ExcelItemReader<T> implements ItemReader<T> {
     private void initializeReader() throws Exception {
         InputStream inputStream = resource.getInputStream();
         Workbook workbook = new XSSFWorkbook(inputStream);
-        Sheet sheet = workbook.getSheetAt(0); // Assuming first sheet
+        Sheet sheet = workbook.getSheetAt(0);  // Assuming first sheet
         this.rowIterator = sheet.iterator();
 
         // Skip header row if it exists
         if (rowIterator.hasNext()) {
-            rowIterator.next(); // Skip header row
+            rowIterator.next();  // Skip header row
         }
 
         log.info("Initialized reader with file: {}", resource.getFilename());
@@ -45,7 +46,8 @@ public class ExcelItemReader<T> implements ItemReader<T> {
 
             // Check if the row contains enough cells and if they are non-null
             if (row.getCell(0) != null && row.getCell(1) != null && row.getCell(2) != null) {
-                log.info("Reading valid row: {}", row.getRowNum());
+                log.info("Reading valid row: {} {} {} {}", row.getRowNum(),row.getCell(0)
+                        ,row.getCell(1),row.getCell(2));
                 return (T) rowMapper.mapRow(row);
             } else {
                 // If row is invalid (empty cells), log and skip

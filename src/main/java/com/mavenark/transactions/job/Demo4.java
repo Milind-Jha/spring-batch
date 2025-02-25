@@ -17,7 +17,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.core.task.TaskExecutor;
@@ -51,8 +51,8 @@ public class Demo4 {
     @Bean
     public Step step1Demo4() throws Exception {
         return this.stepBuilderFactory.get("step1")
-                .<EmployeeDTO, Employee>chunk(5000)
-                .reader(employeeReader(null))
+                .<EmployeeDTO, Employee>chunk(500)
+                .reader(employeeReader(null))  // File path will be passed dynamically here
                 .processor(employeeProcessor)
                 .writer(employeeDBWriterDefault())
                 .taskExecutor(taskExecutor())
@@ -61,10 +61,11 @@ public class Demo4 {
 
     @Bean
     @StepScope
-    public ExcelItemReader<EmployeeDTO> employeeReader(@Value("#{jobParameters[fileName]}") String fileName) throws Exception {
-        Resource fileResource = new ClassPathResource(fileName);
+    public ExcelItemReader<EmployeeDTO> employeeReader(@Value("#{jobParameters['filePath']}") String filePath) throws Exception {
+        Resource fileResource = new FileSystemResource(filePath);  // Use FileSystemResource for dynamic file location
         return new ExcelItemReader<>(fileResource, new EmployeeFileRowMapper());
     }
+
     @Bean
     public JdbcBatchItemWriter<Employee> employeeDBWriterDefault() {
         JdbcBatchItemWriter<Employee> itemWriter = new JdbcBatchItemWriter<>();
