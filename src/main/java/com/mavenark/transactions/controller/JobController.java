@@ -1,39 +1,43 @@
 package com.mavenark.transactions.controller;
-
-import com.mavenark.transactions.runner.JobRunner;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
+import org.springframework.batch.core.*;
+import org.springframework.batch.core.launch.JobLauncher;
 import java.io.File;
-import java.io.IOException;
+import java.io.FileOutputStream;
 
-@Slf4j
 @RestController
-@RequestMapping("/batch")
+@RequestMapping("/job")
 public class JobController {
 
-    private final JobRunner jobRunner;
+    private final JobLauncher jobLauncher;
+    private final Job excelToMongoJob;
 
-    @Autowired
-    public JobController(JobRunner jobRunner) {
-        this.jobRunner = jobRunner;
+    public JobController(JobLauncher jobLauncher, Job excelToMongoJob) {
+        this.jobLauncher = jobLauncher;
+        this.excelToMongoJob = excelToMongoJob;
     }
 
-    @PostMapping("/run-batch")
-    public String runJob(@RequestParam("file") MultipartFile file) {
-        // Save the file to a specific location (e.g., "C:/input/")
-        String filePath = "C:/input/" + file.getOriginalFilename();  // Construct the file path dynamically
+    @PostMapping("/startJob")
+    public String startBatchJob(@RequestParam("file") MultipartFile file) {
         try {
-            file.transferTo(new File(filePath));  // Save the file to the specified location
-        } catch (IOException e) {
-            log.error("Failed to save uploaded file", e);
-            return "Failed to save file";
-        }
+            // Save the uploaded file locally
+            File convFile = new File(System.getProperty("java.io.tmpdir") + "/" + file.getOriginalFilename());
+            FileOutputStream fos = new FileOutputStream(convFile);
+            fos.write(file.getBytes());
+            fos.close();
 
-        long startTime = System.currentTimeMillis();
-        jobRunner.runBatchJob(filePath, startTime);  // Pass the file path dynamically to run the batch job
-        return "Job has started with file: " + filePath;
+            // Job Parameters
+            JobParameters jobParameters = new JobParametersBuilder()
+                    .addString("filePath", convFile.getAbsolutePath())
+                    .addLong("timestamp", System.currentTimeMillis())
+                    .toJobParameters();
+
+            // Start the Job
+            jobLauncher.run(excelToMongoJob, jobParameters);
+            return "Batch job started successfully!";
+        } catch (Exception e) {
+            return "Error starting batch job: " + e.getMessage();
+        }
     }
 }

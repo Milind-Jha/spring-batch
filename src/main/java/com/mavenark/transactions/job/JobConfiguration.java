@@ -2,16 +2,16 @@ package com.mavenark.transactions.job;
 
 import com.mavenark.transactions.dto.EmployeeDTO;
 import com.mavenark.transactions.mapper.EmployeeFileRowMapper;
-import com.mavenark.transactions.model.Employee;
+import com.mavenark.transactions.document.Employee;
 import com.mavenark.transactions.processor.EmployeeProcessor;
 import com.mavenark.transactions.reader.ExcelItemReader;
+import com.mavenark.transactions.repo.EmployeeRepo;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
-import org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider;
-import org.springframework.batch.item.database.JdbcBatchItemWriter;
+import org.springframework.batch.item.data.RepositoryItemWriter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,39 +22,38 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.core.task.TaskExecutor;
 
-import javax.sql.DataSource;
-
 @Configuration
-public class Demo4 {
+public class JobConfiguration {
 
     private final JobBuilderFactory jobBuilderFactory;
     private final StepBuilderFactory stepBuilderFactory;
     private final EmployeeProcessor employeeProcessor;
-    private final DataSource dataSource;
+    private final EmployeeRepo employeeRepo;
 
     @Autowired
-    public Demo4(JobBuilderFactory jobBuilderFactory, StepBuilderFactory stepBuilderFactory, EmployeeProcessor employeeProcessor, DataSource dataSource) {
+    public JobConfiguration(JobBuilderFactory jobBuilderFactory, StepBuilderFactory stepBuilderFactory,
+                            EmployeeProcessor employeeProcessor, EmployeeRepo employeeRepo) {
         this.jobBuilderFactory = jobBuilderFactory;
         this.stepBuilderFactory = stepBuilderFactory;
         this.employeeProcessor = employeeProcessor;
-        this.dataSource = dataSource;
+        this.employeeRepo = employeeRepo;
     }
 
-    @Qualifier(value = "demo4")
+    @Qualifier("excelToMongoJob")
     @Bean
-    public Job demo4Job() throws Exception {
-        return this.jobBuilderFactory.get("demo4")
-                .start(step1Demo4())
+    public Job excelToMongoJob() throws Exception {
+        return jobBuilderFactory.get("excelToMongoJob")
+                .start(step1())
                 .build();
     }
 
     @Bean
-    public Step step1Demo4() throws Exception {
-        return this.stepBuilderFactory.get("step1")
+    public Step step1() throws Exception {
+        return stepBuilderFactory.get("excelToMongoStep")
                 .<EmployeeDTO, Employee>chunk(500)
-                .reader(employeeReader(null))  // File path will be passed dynamically here
+                .reader(employeeReader(null))
                 .processor(employeeProcessor)
-                .writer(employeeDBWriterDefault())
+                .writer(employeeWriter())
                 .taskExecutor(taskExecutor())
                 .build();
     }
@@ -62,24 +61,22 @@ public class Demo4 {
     @Bean
     @StepScope
     public ExcelItemReader<EmployeeDTO> employeeReader(@Value("#{jobParameters['filePath']}") String filePath) throws Exception {
-        Resource fileResource = new FileSystemResource(filePath);  // Use FileSystemResource for dynamic file location
+        Resource fileResource = new FileSystemResource(filePath);
         return new ExcelItemReader<>(fileResource, new EmployeeFileRowMapper());
     }
 
     @Bean
-    public JdbcBatchItemWriter<Employee> employeeDBWriterDefault() {
-        JdbcBatchItemWriter<Employee> itemWriter = new JdbcBatchItemWriter<>();
-        itemWriter.setDataSource(dataSource);
-        itemWriter.setSql("INSERT INTO employee (employee_id, first_name, last_name, email, age) " +
-                "VALUES (:employeeId, :firstName, :lastName, :email, :age)");
-        itemWriter.setItemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>());
-        return itemWriter;
+    public RepositoryItemWriter<Employee> employeeWriter() {
+        RepositoryItemWriter<Employee> writer = new RepositoryItemWriter<>();
+        writer.setRepository(employeeRepo);
+        writer.setMethodName("save");
+        return writer;
     }
 
     @Bean
     public TaskExecutor taskExecutor() {
-        SimpleAsyncTaskExecutor simpleAsyncTaskExecutor = new SimpleAsyncTaskExecutor();
-        simpleAsyncTaskExecutor.setConcurrencyLimit(16);
-        return simpleAsyncTaskExecutor;
+        SimpleAsyncTaskExecutor taskExecutor = new SimpleAsyncTaskExecutor();
+        taskExecutor.setConcurrencyLimit(16);
+        return taskExecutor;
     }
 }

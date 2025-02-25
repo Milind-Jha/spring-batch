@@ -15,7 +15,7 @@ public class EmployeeFileRowMapper {
     public EmployeeDTO mapRow(Row row) {
         EmployeeDTO employee = new EmployeeDTO();
         if (row.getCell(0) != null) {
-            employee.setEmployeeId(row.getCell(0) == null ? UUID.randomUUID().toString() : row.getCell(0).getStringCellValue());
+            employee.setId(row.getCell(0) == null ? UUID.randomUUID().toString() : row.getCell(0).getStringCellValue());
             employee.setFirstName(row.getCell(1) == null ? "" : row.getCell(1).getStringCellValue());
             employee.setLastName(row.getCell(2) == null ? "" : row.getCell(2).getStringCellValue());
             employee.setEmail(row.getCell(3) == null ? "" : row.getCell(3).getStringCellValue());
